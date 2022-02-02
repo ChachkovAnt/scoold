@@ -9,12 +9,20 @@ Disallow: /p/
 Disallow: /signout/
 Disallow: /search/
 Disallow: /*?getreportform*
+Disallow: /profile/
+Disallow: *?sortby=Disallow: *?desc=
+Disallow: *?returnto=
+Disallow: *?page=
+Disallow: /signin
+Disallow: /people
 Allow: /
+
 User-agent: Yahoo Pipes 1.0
 Disallow: /
 User-agent: 008
 Disallow: /
 User-agent: voltron
 Disallow: /
+
 User-agent: Bytespider
 Disallow: /
