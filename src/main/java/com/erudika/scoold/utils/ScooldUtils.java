@@ -403,12 +403,12 @@ public final class ScooldUtils {
 		}
 		Map<String, String> lang = getLang(req);
 
-		var subject = Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
-		var context = new Context(Locale.getDefault());
+		String subject = Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
+		Context context = new Context(Locale.getDefault());
 		context.setVariable("contact_email", user.getEmail());
-		var content = templateEngine.process("emails/welcome.html", context);
+		String content = templateEngine.process("emails/welcome.html", context);
 
-		emailer.sendEmail(List.of(user.getEmail()), subject, content);
+		emailer.sendEmail(Arrays.asList(user.getEmail()), subject, content);
 	}
 
 	public void sendVerificationEmail(Sysprop identifier, HttpServletRequest req) {
