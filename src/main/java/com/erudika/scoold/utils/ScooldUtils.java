@@ -103,6 +103,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 /**
  *
@@ -123,6 +125,7 @@ public final class ScooldUtils {
 	private static final Set<String> HOOK_EVENTS;
 	private static final Map<String, String> WHITELISTED_MACROS;
 	private static final Map<String, Object> API_KEYS = new LinkedHashMap<>(); // jti => jwt
+	@Inject private TemplateEngine templateEngine;
 
 	private List<Sysprop> allSpaces;
 
@@ -392,6 +395,20 @@ public final class ScooldUtils {
 			model.put("body", body1 + body2 + body3);
 			emailer.sendEmail(Arrays.asList(user.getEmail()), subject, compileEmailTemplate(model));
 		}
+	}
+
+	public void sendWelcomeEmailWithTemplate(User user, boolean verifyEmail, HttpServletRequest req) {
+		if (user == null) {
+			return;
+		}
+		Map<String, String> lang = getLang(req);
+
+		var subject = Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
+		var context = new Context(Locale.getDefault());
+		context.setVariable("contact_email", user.getEmail());
+		var content = templateEngine.process("emails/welcome.html", context);
+
+		emailer.sendEmail(List.of(user.getEmail()), subject, content);
 	}
 
 	public void sendVerificationEmail(Sysprop identifier, HttpServletRequest req) {

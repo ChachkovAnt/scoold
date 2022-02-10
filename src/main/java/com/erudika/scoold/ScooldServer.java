@@ -21,15 +21,11 @@ import com.erudika.para.client.ParaClient;
 import com.erudika.para.core.App;
 import com.erudika.para.core.email.Emailer;
 import com.erudika.para.core.utils.Config;
-import com.erudika.scoold.utils.ScooldRequestInterceptor;
 import com.erudika.scoold.utils.ScooldEmailer;
+import com.erudika.scoold.utils.ScooldRequestInterceptor;
 import com.erudika.scoold.utils.ScooldUtils;
 import com.erudika.scoold.velocity.VelocityConfigurer;
 import com.erudika.scoold.velocity.VelocityViewResolver;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import javax.inject.Named;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.velocity.runtime.RuntimeConstants;
@@ -44,12 +40,25 @@ import org.springframework.boot.web.server.ErrorPageRegistrar;
 import org.springframework.boot.web.server.ErrorPageRegistry;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.servlet.ViewResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.spring5.SpringTemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+import org.thymeleaf.templateresolver.ITemplateResolver;
+import org.thymeleaf.templateresolver.StringTemplateResolver;
+
+import javax.inject.Named;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  *
@@ -295,6 +304,46 @@ public class ScooldServer extends SpringBootServletInitializer {
 	@Bean
 	public Emailer scooldEmailerBean(JavaMailSender mailSender) {
 		return new ScooldEmailer(mailSender);
+	}
+
+	@Bean
+	public ResourceBundleMessageSource emailMessageSource() {
+		final ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+		messageSource.setBasename("emails/MailMessages");
+		return messageSource;
+	}
+
+	@Bean
+	public TemplateEngine emailTemplateEngine() {
+		final SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+		// Resolver for HTML emails (except the editable one)
+		templateEngine.addTemplateResolver(htmlTemplateResolver());
+		// Resolver for HTML editable emails (which will be treated as a String)
+		templateEngine.addTemplateResolver(stringTemplateResolver());
+		// Message source, internationalization specific to emails
+		templateEngine.setTemplateEngineMessageSource(emailMessageSource());
+		return templateEngine;
+	}
+
+	private ITemplateResolver htmlTemplateResolver() {
+		final ClassLoaderTemplateResolver templateResolver = new ClassLoaderTemplateResolver();
+		templateResolver.setOrder(1);
+		templateResolver.setResolvablePatterns(Collections.singleton("html/*"));
+		templateResolver.setPrefix("/emails/");
+		templateResolver.setSuffix(".html");
+		templateResolver.setTemplateMode(TemplateMode.HTML);
+		templateResolver.setCharacterEncoding("UTF-8");
+		templateResolver.setCacheable(false);
+		return templateResolver;
+	}
+
+	private ITemplateResolver stringTemplateResolver() {
+		final StringTemplateResolver templateResolver = new StringTemplateResolver();
+		templateResolver.setOrder(2);
+		// No resolvable pattern, will simply process as a String template everything not previously matched
+		templateResolver.setTemplateMode("HTML5");
+		templateResolver.setCacheable(false);
+		return templateResolver;
 	}
 
 	/**

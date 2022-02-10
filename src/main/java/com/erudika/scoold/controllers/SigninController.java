@@ -339,7 +339,7 @@ public class SigninController {
 			u.setName(name);
 			u.setEmail(email);
 			u.setIdentifier(email);
-			utils.sendWelcomeEmail(u, true, req);
+			utils.sendWelcomeEmailWithTemplate(u, true, req);
 		}
 	}
 
