@@ -318,8 +318,6 @@ public class ScooldServer extends SpringBootServletInitializer {
 		final SpringTemplateEngine templateEngine = new SpringTemplateEngine();
 		// Resolver for HTML emails (except the editable one)
 		templateEngine.addTemplateResolver(htmlTemplateResolver());
-		// Resolver for HTML editable emails (which will be treated as a String)
-		templateEngine.addTemplateResolver(stringTemplateResolver());
 		// Message source, internationalization specific to emails
 		templateEngine.setTemplateEngineMessageSource(emailMessageSource());
 		return templateEngine;
@@ -328,20 +326,10 @@ public class ScooldServer extends SpringBootServletInitializer {
 	private ITemplateResolver htmlTemplateResolver() {
 		final ClassLoaderTemplateResolver templateResolver = new ClassLoaderTemplateResolver();
 		templateResolver.setOrder(1);
-		templateResolver.setResolvablePatterns(Collections.singleton("html/*"));
-		templateResolver.setPrefix("/emails/");
+		templateResolver.setPrefix("emails/");
 		templateResolver.setSuffix(".html");
 		templateResolver.setTemplateMode(TemplateMode.HTML);
 		templateResolver.setCharacterEncoding("UTF-8");
-		templateResolver.setCacheable(false);
-		return templateResolver;
-	}
-
-	private ITemplateResolver stringTemplateResolver() {
-		final StringTemplateResolver templateResolver = new StringTemplateResolver();
-		templateResolver.setOrder(2);
-		// No resolvable pattern, will simply process as a String template everything not previously matched
-		templateResolver.setTemplateMode("HTML5");
 		templateResolver.setCacheable(false);
 		return templateResolver;
 	}
