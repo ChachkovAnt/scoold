@@ -17,7 +17,6 @@
  */
 package com.erudika.scoold.utils;
 
-import com.erudika.para.core.utils.Para;
 import com.erudika.para.client.ParaClient;
 import com.erudika.para.core.Address;
 import com.erudika.para.core.ParaObject;
@@ -26,29 +25,24 @@ import com.erudika.para.core.Tag;
 import com.erudika.para.core.User;
 import com.erudika.para.core.Vote;
 import com.erudika.para.core.Webhook;
-import com.erudika.para.core.utils.ParaObjectUtils;
 import com.erudika.para.core.email.Emailer;
 import com.erudika.para.core.utils.Config;
 import com.erudika.para.core.utils.Pager;
+import com.erudika.para.core.utils.Para;
+import com.erudika.para.core.utils.ParaObjectUtils;
 import com.erudika.para.core.utils.Utils;
 import com.erudika.para.core.validation.ValidationUtils;
 import com.erudika.scoold.ScooldServer;
-import static com.erudika.scoold.ScooldServer.*;
 import com.erudika.scoold.core.Comment;
 import com.erudika.scoold.core.Feedback;
 import com.erudika.scoold.core.Post;
-import static com.erudika.scoold.core.Post.ALL_MY_SPACES;
-import static com.erudika.scoold.core.Post.DEFAULT_SPACE;
 import com.erudika.scoold.core.Profile;
-import static com.erudika.scoold.core.Profile.Badge.ENTHUSIAST;
-import static com.erudika.scoold.core.Profile.Badge.TEACHER;
 import com.erudika.scoold.core.Question;
 import com.erudika.scoold.core.Reply;
 import com.erudika.scoold.core.Report;
 import com.erudika.scoold.core.Revision;
 import com.erudika.scoold.core.UnapprovedQuestion;
 import com.erudika.scoold.core.UnapprovedReply;
-import static com.erudika.scoold.utils.HttpUtils.getCookieValue;
 import com.erudika.scoold.utils.avatars.AvatarFormat;
 import com.erudika.scoold.utils.avatars.AvatarRepository;
 import com.erudika.scoold.utils.avatars.AvatarRepositoryProxy;
@@ -63,6 +57,22 @@ import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.typesafe.config.ConfigObject;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.RegExUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.text.StringEscapeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.stereotype.Component;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.validation.ConstraintViolation;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -88,23 +98,28 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.validation.ConstraintViolation;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.RegExUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringEscapeUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
-import org.springframework.stereotype.Component;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
+
+import static com.erudika.scoold.ScooldServer.AUTH_COOKIE;
+import static com.erudika.scoold.ScooldServer.AUTH_USER_ATTRIBUTE;
+import static com.erudika.scoold.ScooldServer.CDN_URL;
+import static com.erudika.scoold.ScooldServer.CONTEXT_PATH;
+import static com.erudika.scoold.ScooldServer.ENTHUSIAST_IFHAS;
+import static com.erudika.scoold.ScooldServer.FRESHMAN_IFHAS;
+import static com.erudika.scoold.ScooldServer.GEEK_IFHAS;
+import static com.erudika.scoold.ScooldServer.IMAGESLINK;
+import static com.erudika.scoold.ScooldServer.LOCALE_COOKIE;
+import static com.erudika.scoold.ScooldServer.PROFESSOR_IFHAS;
+import static com.erudika.scoold.ScooldServer.REST_ENTITY_ATTRIBUTE;
+import static com.erudika.scoold.ScooldServer.SCHOLAR_IFHAS;
+import static com.erudika.scoold.ScooldServer.SIGNINLINK;
+import static com.erudika.scoold.ScooldServer.SPACE_COOKIE;
+import static com.erudika.scoold.ScooldServer.TEACHER_IFHAS;
+import static com.erudika.scoold.ScooldServer.getServerURL;
+import static com.erudika.scoold.core.Post.ALL_MY_SPACES;
+import static com.erudika.scoold.core.Post.DEFAULT_SPACE;
+import static com.erudika.scoold.core.Profile.Badge.ENTHUSIAST;
+import static com.erudika.scoold.core.Profile.Badge.TEACHER;
+import static com.erudika.scoold.utils.HttpUtils.getCookieValue;
 
 /**
  *
@@ -119,13 +134,13 @@ public final class ScooldUtils {
 	private static final Set<String> APPROVED_DOMAINS = new HashSet<>();
 	private static final Set<String> ADMINS = new HashSet<>();
 	private static final String EMAIL_ALERTS_PREFIX = "email-alerts" + Config.SEPARATOR;
+	private static final String UNSUBSCRIBE_LINK = getServerURL() + "/settings";
 
 	private static final Profile API_USER;
 	private static final Set<String> CORE_TYPES;
 	private static final Set<String> HOOK_EVENTS;
 	private static final Map<String, String> WHITELISTED_MACROS;
 	private static final Map<String, Object> API_KEYS = new LinkedHashMap<>(); // jti => jwt
-	@Inject private TemplateEngine templateEngine;
 
 	private List<Sysprop> allSpaces;
 
@@ -325,7 +340,7 @@ public final class ScooldUtils {
 			authUser = Profile.fromUser(u);
 			authUser.create();
 			if (!u.getIdentityProvider().equals("generic")) {
-				sendWelcomeEmail(u, false, req);
+				sendWelcomeEmailWithTemplate(u, false, req);
 			}
 			Map<String, Object> payload = new LinkedHashMap<>(ParaObjectUtils.getAnnotatedFields(authUser, false));
 			payload.put("user", u);
@@ -361,96 +376,71 @@ public final class ScooldUtils {
 				"1".equals(HttpUtils.getCookieValue(req, "dark-mode"));
 	}
 
-	private String getDefaultEmailSignature(String defaultText) {
-		String template = Config.getConfigParam("emails.default_signature", defaultText);
-		return Utils.formatMessage(template, Config.APP_NAME);
-	}
-
-	public void sendWelcomeEmail(User user, boolean verifyEmail, HttpServletRequest req) {
-		// send welcome email notification
-		if (user != null) {
-			Map<String, Object> model = new HashMap<String, Object>();
-			Map<String, String> lang = getLang(req);
-			String subject = Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
-			String body1 = Utils.formatMessage(Config.getConfigParam("emails.welcome_text1",
-					lang.get("signin.welcome.body1") + "<br><br>"), Config.APP_NAME);
-			String body2 = Config.getConfigParam("emails.welcome_text2", lang.get("signin.welcome.body2") + "<br><br>");
-			String body3 = getDefaultEmailSignature(Config.getConfigParam("emails.welcome_text3",
-					lang.get("notification.signature") + "<br><br>"));
-
-			if (verifyEmail && !user.getActive() && !StringUtils.isBlank(user.getIdentifier())) {
-				Sysprop s = pc.read(user.getIdentifier());
-				if (s != null) {
-					String token = Utils.base64encURL(Utils.generateSecurityToken().getBytes());
-					s.addProperty(Config._EMAIL_TOKEN, token);
-					pc.update(s);
-					token = getServerURL() + CONTEXT_PATH + SIGNINLINK + "/register?id=" + user.getId() + "&token=" + token;
-					body3 = "<b><a href=\"" + token + "\">" + lang.get("signin.welcome.verify") + "</a></b><br><br>" + body3;
-				}
-			}
-
-			model.put("subject", escapeHtml(subject));
-			model.put("logourl", Config.getConfigParam("small_logo_url", "https://interacty.me/_next/static/image/images/logo/blue.9f6c317928ecd435916c8d42a2f173b2.svg"));
-			model.put("heading", Utils.formatMessage(lang.get("signin.welcome.title"), escapeHtml(user.getName())));
-			model.put("body", body1 + body2 + body3);
-			emailer.sendEmail(Arrays.asList(user.getEmail()), subject, compileEmailTemplate(model));
-		}
-	}
-
 	public void sendWelcomeEmailWithTemplate(User user, boolean verifyEmail, HttpServletRequest req) {
 		if (user == null) {
 			return;
 		}
+		Map<String, Object> model = new HashMap<>();
 		Map<String, String> lang = getLang(req);
 
-		String subject = Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
-		Context context = new Context(Locale.getDefault());
-		context.setVariable("contact_email", user.getEmail());
-		String content = templateEngine.process("emails/welcome.html", context);
-
-		emailer.sendEmail(Arrays.asList(user.getEmail()), subject, content);
-	}
-
-	public void sendVerificationEmail(Sysprop identifier, HttpServletRequest req) {
-		if (identifier != null) {
-			Map<String, Object> model = new HashMap<String, Object>();
-			Map<String, String> lang = getLang(req);
-			String subject = Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
-			String body = getDefaultEmailSignature(Config.getConfigParam("emails.welcome_text3",
-					lang.get("notification.signature") + "<br><br>"));
-
-			String token = Utils.base64encURL(Utils.generateSecurityToken().getBytes());
-			identifier.addProperty(Config._EMAIL_TOKEN, token);
-			identifier.addProperty("confirmationTimestamp", Utils.timestamp());
-			pc.update(identifier);
-			token = getServerURL() + CONTEXT_PATH + SIGNINLINK + "/register?id=" +
-					identifier.getCreatorid() + "&token=" + token;
-			body = "<b><a href=\"" + token + "\">" + lang.get("signin.welcome.verify") + "</a></b><br><br>" + body;
-
-			model.put("subject", escapeHtml(subject));
-			model.put("logourl", Config.getConfigParam("small_logo_url", "https://interacty.me/_next/static/image/images/logo/blue.9f6c317928ecd435916c8d42a2f173b2.svg"));
-			model.put("heading", lang.get("hello"));
-			model.put("body", body);
-			emailer.sendEmail(Arrays.asList(identifier.getId()), subject, compileEmailTemplate(model));
+		if (verifyEmail && !user.getActive() && !StringUtils.isBlank(user.getIdentifier())) {
+			Sysprop s = pc.read(user.getIdentifier());
+			if (s != null) {
+				String token = Utils.base64encURL(Utils.generateSecurityToken().getBytes());
+				s.addProperty(Config._EMAIL_TOKEN, token);
+				pc.update(s);
+				token = getServerURL()
+					+ CONTEXT_PATH
+					+ SIGNINLINK
+					+ "/register?id="
+					+ user.getId()
+					+ "&token="
+					+ token;
+				model.put("activation_link", token);
+			}
+		} else {
+			model.put("activation_link", getServerURL() + "/questions/ask");
 		}
+
+		String subject = "Interacty: " + Utils.formatMessage(lang.get("signin.welcome"), Config.APP_NAME);
+
+		model.put("subject", subject);
+		model.put("contact_email", user.getEmail());
+		model.put("heading", lang.get("hello"));
+		model.put("unsubscribe", UNSUBSCRIBE_LINK);
+		model.put("current_year", 1900 + new Date().getYear());
+
+		String content = Utils.compileMustache(
+			model,
+			loadEmailTemplate(verifyEmail
+					? "welcome_with_verify"
+					: "welcome_without_verify"));
+		emailer.sendEmail(Arrays.asList(user.getEmail()), subject, content);
 	}
 
 	public void sendPasswordResetEmail(String email, String token, HttpServletRequest req) {
 		if (email != null && token != null) {
-			Map<String, Object> model = new HashMap<String, Object>();
+			Map<String, Object> model = new HashMap<>();
 			Map<String, String> lang = getLang(req);
-			String url = getServerURL() + CONTEXT_PATH + SIGNINLINK + "/iforgot?email=" + email + "&token=" + token;
-			String subject = lang.get("iforgot.title");
-			String body1 = lang.get("notification.iforgot.body1") + "<br><br>";
-			String body2 = Utils.formatMessage("<b><a href=\"{0}\">" + lang.get("notification.iforgot.body2") +
-					"</a></b><br><br>", url);
-			String body3 = getDefaultEmailSignature(lang.get("notification.signature") + "<br><br>");
+			String subject = "Interacty: " + lang.get("iforgot.title");
+			String url = getServerURL()
+				+ CONTEXT_PATH
+				+ SIGNINLINK
+				+ "/iforgot?email="
+				+ email
+				+ "&token="
+				+ token;
 
-			model.put("subject", escapeHtml(subject));
-			model.put("logourl", Config.getConfigParam("small_logo_url", "https://interacty.me/_next/static/image/images/logo/blue.9f6c317928ecd435916c8d42a2f173b2.svg"));
+			model.put("subject", subject);
+			model.put("contact_email", email);
 			model.put("heading", lang.get("hello"));
-			model.put("body", body1 + body2 + body3);
-			emailer.sendEmail(Arrays.asList(email), subject, compileEmailTemplate(model));
+			model.put("password_reset_url", url);
+			model.put("unsubscribe", UNSUBSCRIBE_LINK);
+			model.put("current_year", 1900 + new Date().getYear());
+
+			String content = Utils.compileMustache(model, loadEmailTemplate("forgot_password"));
+
+			emailer.sendEmail(Arrays.asList(email), subject, content);
 		}
 	}
 
@@ -550,26 +540,49 @@ public final class ScooldUtils {
 		return Collections.emptyMap();
 	}
 
-	private void sendEmailsToSubscribersInSpace(Set<String> emails, String space, String subject, String html) {
+	private void sendEmailsToSubscribersInSpace(
+			Set<String> emails,
+			String space,
+			String subject,
+			String html) {
 		int i = 0;
 		int max = Config.MAX_ITEMS_PER_PAGE;
 		List<String> terms = new ArrayList<>(max);
+
 		for (String email : emails) {
 			terms.add(email);
 			if (++i == max) {
-				emailer.sendEmail(buildProfilesMap(pc.findTermInList(Utils.type(User.class), Config._EMAIL, terms)).
-						entrySet().stream().filter(e -> canAccessSpace(e.getValue(), space) &&
-								!isIgnoredSpaceForNotifications(e.getValue(), space)).
-						map(e -> e.getKey()).collect(Collectors.toList()), subject, html);
+				emailer.sendEmail(
+					buildProfilesMap(
+							pc.findTermInList(
+									Utils.type(User.class),
+									Config._EMAIL,
+								    terms))
+						.entrySet()
+						.stream()
+						.filter(
+							e -> canAccessSpace(e.getValue(), space)
+								&& !isIgnoredSpaceForNotifications(e.getValue(), space))
+						.map(Map.Entry::getKey)
+						.collect(Collectors.toList()), subject, html);
 				i = 0;
 				terms.clear();
 			}
 		}
 		if (!terms.isEmpty()) {
-			emailer.sendEmail(buildProfilesMap(pc.findTermInList(Utils.type(User.class), Config._EMAIL, terms)).
-					entrySet().stream().filter(e -> canAccessSpace(e.getValue(), space) &&
-							!isIgnoredSpaceForNotifications(e.getValue(), space)).
-					map(e -> e.getKey()).collect(Collectors.toList()), subject, html);
+			emailer.sendEmail(
+					buildProfilesMap(
+							pc.findTermInList(
+								Utils.type(User.class),
+								Config._EMAIL,
+								terms))
+						.entrySet()
+						.stream()
+						.filter(
+							e -> canAccessSpace(e.getValue(), space)
+								&& !isIgnoredSpaceForNotifications(e.getValue(), space))
+						.map(Map.Entry::getKey)
+						.collect(Collectors.toList()), subject, html);
 		}
 	}
 
@@ -639,26 +652,26 @@ public final class ScooldUtils {
 				return;
 			}
 
-			Map<String, Object> model = new HashMap<String, Object>();
+			Map<String, Object> model = new HashMap<>();
 			Map<String, String> lang = getLang(req);
 			String name = postAuthor.getName();
 			String body = Utils.markdownToHtml(question.getBody());
-			String picture = Utils.formatMessage("<img src='{0}' width='25'>", escapeHtmlAttribute(avatarRepository.getLink(postAuthor, AvatarFormat.Square25)));
 			String postURL = getServerURL() + question.getPostLink(false, false);
-			String tagsString = Optional.ofNullable(question.getTags()).orElse(Collections.emptyList()).stream().
-					map(t -> "<span class=\"tag\">" + escapeHtml(t) + "</span>").
-					collect(Collectors.joining("&nbsp;"));
 			String subject = Utils.formatMessage(lang.get("notification.newposts.subject"), name,
 					Utils.abbreviate(question.getTitle(), 255));
-			model.put("subject", escapeHtml(subject));
-			model.put("logourl", Config.getConfigParam("small_logo_url", "https://interacty.me/_next/static/image/images/logo/blue.9f6c317928ecd435916c8d42a2f173b2.svg"));
-			model.put("heading", Utils.formatMessage(lang.get("notification.newposts.heading"), picture, escapeHtml(name)));
-			model.put("body", Utils.formatMessage("<h2><a href='{0}'>{1}</a></h2><div>{2}</div><br>{3}",
-					postURL, escapeHtml(question.getTitle()), body, tagsString));
 
-			Set<String> emails = new HashSet<String>(getNotificationSubscribers(EMAIL_ALERTS_PREFIX + "new_post_subscribers"));
+			model.put("unsubscribe", UNSUBSCRIBE_LINK);
+			model.put("current_year", 1900 + new Date().getYear());
+			model.put("subject", escapeHtml(subject));
+			model.put("post", Utils.formatMessage("<h2><a href='{0}'>{1}</a></h2><div>{2}</div>",
+					postURL, escapeHtml(question.getTitle()), body));
+
+			Set<String> emails = new HashSet<>(getNotificationSubscribers(EMAIL_ALERTS_PREFIX + "new_post_subscribers"));
 			emails.addAll(getFavTagsSubscribers(question.getTags()));
-			sendEmailsToSubscribersInSpace(emails, question.getSpace(), subject, compileEmailTemplate(model));
+
+			String content = Utils.compileMustache(model, loadEmailTemplate("new_question"));
+
+			sendEmailsToSubscribersInSpace(emails, question.getSpace(), subject, content);
 		} else if (postsNeedApproval() && question instanceof UnapprovedQuestion) {
 			Report rep = new Report();
 			rep.setDescription("New question awaiting approval");
@@ -1595,9 +1608,16 @@ public final class ScooldUtils {
 				+ "<a href=\"https://scoold.com\">Powered by Scoold</a>"));
 		String fqdn = Config.getConfigParam("rewrite_inbound_links_with_fqdn", "");
 		if (!StringUtils.isBlank(fqdn)) {
-			model.entrySet().stream().filter(e -> (e.getValue() instanceof String)).forEachOrdered(e -> {
-				model.put(e.getKey(), StringUtils.replace((String) e.getValue(), ScooldServer.getServerURL(), fqdn));
-			});
+			model.entrySet()
+				.stream()
+				.filter(e -> (e.getValue() instanceof String))
+				.forEachOrdered(
+					e -> model.put(
+						e.getKey(),
+						StringUtils.replace(
+							(String) e.getValue(),
+							ScooldServer.getServerURL(),
+							fqdn)));
 		}
 		return Utils.compileMustache(model, loadEmailTemplate("notify"));
 	}

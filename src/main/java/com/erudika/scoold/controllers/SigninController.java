@@ -181,14 +181,22 @@ public class SigninController {
 	public String resend(@RequestParam String email, HttpServletRequest req, HttpServletResponse res, Model model) {
 		if (!utils.isAuthenticated(req) && HttpUtils.isValidCaptcha(req.getParameter("g-recaptcha-response"))) {
 			Sysprop ident = pc.read(email);
-			// confirmation emails can be resent once every 6h
-			if (ident != null && !StringUtils.isBlank((String) ident.getProperty(Config._EMAIL_TOKEN)) &&
-					(!ident.hasProperty("confirmationTimestamp") || Utils.timestamp() >
-					((long) ident.getProperty("confirmationTimestamp") + TimeUnit.HOURS.toMillis(6)))) {
-				User u = pc.read(Utils.type(User.class), ident.getCreatorid());
-				if (u != null && !u.getActive()) {
-					utils.sendVerificationEmail(ident, req);
+			if (ident == null) {
+				return "/register?verify=false";
+			}
+
+			boolean lastAttemptWasRecently = ident.hasProperty("confirmationTimestamp")
+				&& Utils.timestamp() > (
+					(long) ident.getProperty("confirmationTimestamp")
+						+ TimeUnit.MINUTES.toMillis(5));
+			// confirmation emails can be resent once every 5 minutes
+			if (!lastAttemptWasRecently) {
+				User user = pc.read(Utils.type(User.class), ident.getCreatorid());
+				if (user != null && !user.getActive()) {
+					utils.sendWelcomeEmailWithTemplate(user, true, req);
 				}
+			} else {
+				return "redirect:" + SIGNINLINK + "/register?verify=false";
 			}
 		}
 		return "redirect:" + SIGNINLINK + "/register?verify=true";
@@ -380,8 +388,14 @@ public class SigninController {
 			return "";
 		}
 		Sysprop s = pc.read(email);
-		// pass reset emails can be sent once every 12h
-		if (s != null && (s.getUpdated() == null || Utils.timestamp() > (s.getUpdated() + TimeUnit.HOURS.toNanos(12)))) {
+
+		if (s == null) {
+			return "";
+		}
+
+		boolean lastAttemptWasRecently = Utils.timestamp() < (s.getUpdated() + TimeUnit.SECONDS.toMillis(5));
+		// pass reset emails can be sent once every 5 min
+		if (s.getUpdated() != null && !lastAttemptWasRecently) {
 			String token = Utils.generateSecurityToken(42, true);
 			s.addProperty(Config._RESET_TOKEN, token);
 			s.setUpdated(Utils.timestamp());

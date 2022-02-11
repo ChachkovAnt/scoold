@@ -40,22 +40,14 @@ import org.springframework.boot.web.server.ErrorPageRegistrar;
 import org.springframework.boot.web.server.ErrorPageRegistry;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.servlet.ViewResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.spring5.SpringTemplateEngine;
-import org.thymeleaf.templatemode.TemplateMode;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
-import org.thymeleaf.templateresolver.ITemplateResolver;
-import org.thymeleaf.templateresolver.StringTemplateResolver;
 
 import javax.inject.Named;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -304,34 +296,6 @@ public class ScooldServer extends SpringBootServletInitializer {
 	@Bean
 	public Emailer scooldEmailerBean(JavaMailSender mailSender) {
 		return new ScooldEmailer(mailSender);
-	}
-
-	@Bean
-	public ResourceBundleMessageSource emailMessageSource() {
-		final ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
-		messageSource.setBasename("emails/MailMessages");
-		return messageSource;
-	}
-
-	@Bean
-	public TemplateEngine emailTemplateEngine() {
-		final SpringTemplateEngine templateEngine = new SpringTemplateEngine();
-		// Resolver for HTML emails (except the editable one)
-		templateEngine.addTemplateResolver(htmlTemplateResolver());
-		// Message source, internationalization specific to emails
-		templateEngine.setTemplateEngineMessageSource(emailMessageSource());
-		return templateEngine;
-	}
-
-	private ITemplateResolver htmlTemplateResolver() {
-		final ClassLoaderTemplateResolver templateResolver = new ClassLoaderTemplateResolver();
-		templateResolver.setOrder(1);
-		templateResolver.setPrefix("emails/");
-		templateResolver.setSuffix(".html");
-		templateResolver.setTemplateMode(TemplateMode.HTML);
-		templateResolver.setCharacterEncoding("UTF-8");
-		templateResolver.setCacheable(false);
-		return templateResolver;
 	}
 
 	/**
