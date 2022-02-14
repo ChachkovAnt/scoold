@@ -326,17 +326,25 @@
 															<tbody><tr>
 																<td height="10"></td>
 															</tr>
-
 															<tr>
 																<td style="font-family:Arial,Helvetica,sans-serif; color:#3c4858; text-align:center;">
-
-																	<span style="color:#3c4858;"><span style="font-size: 24px;"><b>New question received!</b></span></span>
+																	<span style="color:#3c4858;"><span style="font-size: 24px;"><b>{{ message_title }}</b></span></span>
 																</td>
 															</tr>
 															<tr>
 																<td height="10"></td>
 															</tr>
-															</tbody></table>
+															<tr>
+																<td style="font-family:Arial,Helvetica,sans-serif; color:#3c4858; text-align:center;">
+																	<span style="color:#3c4858;"><span
+																		style="font-size: 20px;"><a href='{{ post_url }}' style="text-decoration: underline; color: rgb(0, 146, 255)"><b>{{ question_title }}</b></a></span></span>
+																</td>
+															</tr>
+															<tr>
+																<td height="10"></td>
+															</tr>
+															</tbody>
+														</table>
 													</th></tr>
 												</tbody></table></td>
 									</tr>
@@ -386,7 +394,7 @@
 
 															<tr>
 																<td>
-																	{{ post }}
+																	{{ post_body }}
 																</td>
 															</tr>
 															<tr>

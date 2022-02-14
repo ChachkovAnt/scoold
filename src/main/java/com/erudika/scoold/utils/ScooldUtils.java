@@ -646,7 +646,9 @@ public final class ScooldUtils {
 			return;
 		}
 		// the current user - same as utils.getAuthUser(req)
-		Profile postAuthor = question.getAuthor() != null ? question.getAuthor() : pc.read(question.getCreatorid());
+		Profile postAuthor = question.getAuthor() != null
+			? question.getAuthor()
+			: pc.read(question.getCreatorid());
 		if (!question.getType().equals(Utils.type(UnapprovedQuestion.class))) {
 			if (!isNewPostNotificationAllowed()) {
 				return;
@@ -657,14 +659,15 @@ public final class ScooldUtils {
 			String name = postAuthor.getName();
 			String body = Utils.markdownToHtml(question.getBody());
 			String postURL = getServerURL() + question.getPostLink(false, false);
-			String subject = Utils.formatMessage(lang.get("notification.newposts.subject"), name,
-					Utils.abbreviate(question.getTitle(), 255));
+			String title = Utils.formatMessage(lang.get("notification.newposts.subject"), name);
+			String subject = escapeHtml(title);
 
 			model.put("unsubscribe", UNSUBSCRIBE_LINK);
 			model.put("current_year", 1900 + new Date().getYear());
-			model.put("subject", escapeHtml(subject));
-			model.put("post", Utils.formatMessage("<h2><a href='{0}'>{1}</a></h2><div>{2}</div>",
-					postURL, escapeHtml(question.getTitle()), body));
+			model.put("message_title", subject);
+			model.put("question_title", question.getTitle());
+			model.put("post_url", postURL);
+			model.put("post_body", body);
 
 			Set<String> emails = new HashSet<>(getNotificationSubscribers(EMAIL_ALERTS_PREFIX + "new_post_subscribers"));
 			emails.addAll(getFavTagsSubscribers(question.getTags()));
@@ -720,9 +723,10 @@ public final class ScooldUtils {
 			}
 
 			if (isReplyNotificationAllowed() && parentPost.hasFollowers()) {
-				emailer.sendEmail(new ArrayList<String>(parentPost.getFollowers().values()),
-						subject,
-						compileEmailTemplate(model));
+				emailer.sendEmail(
+					new ArrayList<>(parentPost.getFollowers().values()),
+					subject,
+					compileEmailTemplate(model));
 			}
 		}
 	}
