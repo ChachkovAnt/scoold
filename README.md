@@ -322,6 +322,7 @@ Example for `para-application.conf`:
 ```ini
 para.env = "production"
 para.dao = "H2DAO"
+para.search = "LuceneSearch"
 ```
 
 Example for `scoold-application.conf`:
@@ -331,11 +332,14 @@ para.app_name = "Scoold"
 para.endpoint = "http://para:8080"
 para.access_key = "app:scoold"
 para.secret_key = "..."
+# specify the actual public hostname for Para
+para.security.redirect_uri = "http://localhost:8080"
 ```
-Docker Compose automatically creates DNS names for each of the services.
-This is why the exemplary `scoold-application.conf` contains
-`http://para:8080` as the value for `para.endpoint`. The internal IP
-of Para will be resolved by Docker automatically.
+**Important:** Scoold will connect to Para on `http://para:8080`, inside the Docker container environment.
+That hostname may not be accessible from your local machine or the Internet, which will break authentication redirects.
+For example, when signing in with Google, you will be redirected to Google and then back to Para, on the address
+specified in `para.security.redirect_uri`. Para must be a publicly accessible on that address or the authentication
+requests will fail.
 
 Then you can start both Scoold and Para with Docker Compose like so:
 ```
@@ -838,16 +842,65 @@ para.security.oauth.users_equivalent_claim_value = ""
 para.security.oauth.download_avatars = false
 ```
 
-**Note:** When assigning roles from OAuth2 claims, you can explicitly specify a subset of allowed users who can access
-Scoold by setting `para.security.oauth.users_equivalent_claim_value`. For example, if the value of that is set
-to `"scoold_user"`, and a user having the claim of `"roles": ["sales_rep"]` tries to login, they will be denied access.
-By default, all OAuth2 users are allowed to log into Scoold.
-
-**Access token delegation** is an additional security feature, where the access token from the identity provider (IDP)
+#### Access token delegation
+**PRO** This is an additional security feature, where the access token from the identity provider (IDP)
 is stored in the user's `idpAccessToken` field and validated on each authentication request with the IDP. If the IDP
 revokes a delegated access token, then that user would automatically be logged out from Scoold Pro and denied access
 immediately.
 
+#### Advanced attribute mapping
+The basic profile data attributes (name, email, etc.) can be extracted from a complex response payload which is returned
+from the identity provider's `userinfo` endpoint. You can use JSON pointer syntax to locate attribute values within a
+more complex JSON payload like this one:
+```
+{
+    "sub": "gfreeman",
+    "attributes": {
+        "DisplayName": "Gordon Freeman",
+        "DN": "uid=gordon,CN=Users,O=BlackMesa",
+        "Email": "gordon.freeman@blackmesa.gov"
+    }
+}
+```
+The corresponding configuration to extract the name and email address would be:
+```ini
+para.security.oauth.parameters.email = "/attributes/Email"
+para.security.oauth.parameters.name = "/attributes/DisplayName"
+```
+
+#### Advanced roles mapping
+**PRO** This feature requires token delegation to be enabled with `para.security.oauth.token_delegation_enabled = true`.
+When working with complex user profile payloads coming from the ID provider, you can specify the exact property
+name where the roles data is contained. For example, having a JSON user profile response like this:
+```
+{
+    "sub": "gfreeman",
+    "DisplayName": "Gordon Freeman",
+    "Roles": "Staff,Admins,TopSecret",
+    "attributes": {
+        "MemberOf": [
+            "CN=Admins,CN=Lab,O=BlackMesa"
+        ]
+    }
+}
+```
+we can map that user to the Scoold admins group with this configuration:
+```ini
+para.security.oauth.groups_attribute_name = "Roles"
+para.security.oauth.admins_equivalent_claim_value = ".*?Admins.*"
+```
+Regular expressions are supported for searching within the roles attribute value. JSON pointers can also be used here
+like so:
+```ini
+para.security.oauth.groups_attribute_name = "/attributes/MemberOf"
+para.security.oauth.admins_equivalent_claim_value = "^CN=Admins.*"
+```
+Additionally, when assigning roles from OAuth2 claims, you can explicitly specify a subset of allowed users who can access
+Scoold by setting `para.security.oauth.users_equivalent_claim_value`. For example, if the value of that is set
+to `"scoold_user"`, and a user having the claim of `"roles": ["sales_rep"]` tries to login, they will be denied access.
+By default, all OAuth2 users are allowed to log into Scoold.
+
+#### Additional custom OAuth 2.0 providers
 You can add two additional custom OAuth 2.0/OpenID connect providers called "second" and "third". Here's what the settings
 look like for the "second" provider:
 
@@ -1038,7 +1091,7 @@ To test this, try logging in with user `manager` and password `Secret123`.
 **PRO** Scoold Pro can authenticate users with an internal (local) LDAP server, even if your Para backend is hosted outside
 of your network (like ParaIO.com). This adds an extra layer of security and flexibility and doesn't require a publicly
 accessible LDAP server. To enable this feature, add this to your configuration:
-```
+```ini
 para.security.ldap.is_local = true
 # required for passwordless authentication with Para
 para.app_secret_key = "change_to_long_random_string"
@@ -1152,7 +1205,7 @@ Note that the secret key above is **not** the same as your Para secret key! You 
 Para supports custom authentication providers through its "passwordless" filter. This means that you can send any
 user info to Para and it will authenticate that user automatically without passwords. The only verification done here is
 on this secret key value which you provide in your Scoold Pro configuration file:
-```
+```ini
 para.app_secret_key = "change_to_long_random_string"
 ```
 This key is used to protect requests to the passwordless filter and it's different from the Para secret key for your app.
@@ -1309,7 +1362,7 @@ will the access token (JWT) inside the cookie.
 
 You can restrict signups only to users from a particular identity domain, say `acme-corp.com`. To do so, set the
 following configuration property:
-```
+```ini
 para.approved_domains_for_signups = "acme-corp.com"
 ```
 Then a user with email `john@acme-corp.com` will be allowed to login (the identity provider is irrelevant), but user
@@ -2111,7 +2164,7 @@ The response body is similar to this:
 {
   "healthy": true,
   "message": "Scoold API, see docs at http://localhost:8000/apidocs",
-	"pro": false
+  "pro": false
 }
 ```
 

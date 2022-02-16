@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Erudika. https://erudika.com
+ * Copyright 2013-2022 Erudika. https://erudika.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -229,6 +229,7 @@ public class ScooldServer extends SpringBootServletInitializer {
 		pc.setChunkSize(Config.getConfigInt("batch_request_size", 0)); // unlimited batch size
 
 		logger.info("Initialized ParaClient with endpoint {} and access key '{}'.", pc.getEndpoint(), accessKey);
+		printRootAppConnectionNotice(accessKey);
 		printGoogleMigrationNotice();
 		// update the Scoold App settings through the Para App settings API.
 		Map<String, Object> settings = new HashMap<String, Object>();
@@ -288,7 +289,7 @@ public class ScooldServer extends SpringBootServletInitializer {
 			pc.throwExceptionOnHTTPError(true);
 			pc.setAppSettings(settings);
 			pc.throwExceptionOnHTTPError(false);
-			return true;
+			return pc.getTimestamp() > 0; // finally, check if app actually exists
 		});
 		return pc;
 	}
@@ -353,6 +354,13 @@ public class ScooldServer extends SpringBootServletInitializer {
 			logger.warn("Please migrate to the standard OAuth2 authentication method for signin in with Google. "
 					+ "Change 'para.google_client_id' to 'para.gp_app_id' and also add the secret key for your OAuth2 "
 					+ "app as 'para.gp_secret' in your configuration. https://console.cloud.google.com/apis/credentials");
+		}
+	}
+
+	private void printRootAppConnectionNotice(String accessKey) {
+		if (App.id(Config.PARA).equalsIgnoreCase(App.id(accessKey))) {
+			logger.warn("You are connected to the root Para app - this is not recommended and can be problematic. "
+					+ "Please create a separate Para app for Scoold to connect to.");
 		}
 	}
 

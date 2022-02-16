@@ -17,6 +17,7 @@
  */
 package com.erudika.scoold.utils;
 
+import com.erudika.para.core.utils.Para;
 import com.erudika.para.client.ParaClient;
 import com.erudika.para.core.Address;
 import com.erudika.para.core.ParaObject;
@@ -25,24 +26,29 @@ import com.erudika.para.core.Tag;
 import com.erudika.para.core.User;
 import com.erudika.para.core.Vote;
 import com.erudika.para.core.Webhook;
+import com.erudika.para.core.utils.ParaObjectUtils;
 import com.erudika.para.core.email.Emailer;
 import com.erudika.para.core.utils.Config;
 import com.erudika.para.core.utils.Pager;
-import com.erudika.para.core.utils.Para;
-import com.erudika.para.core.utils.ParaObjectUtils;
 import com.erudika.para.core.utils.Utils;
 import com.erudika.para.core.validation.ValidationUtils;
 import com.erudika.scoold.ScooldServer;
+import static com.erudika.scoold.ScooldServer.*;
 import com.erudika.scoold.core.Comment;
 import com.erudika.scoold.core.Feedback;
 import com.erudika.scoold.core.Post;
+import static com.erudika.scoold.core.Post.ALL_MY_SPACES;
+import static com.erudika.scoold.core.Post.DEFAULT_SPACE;
 import com.erudika.scoold.core.Profile;
+import static com.erudika.scoold.core.Profile.Badge.ENTHUSIAST;
+import static com.erudika.scoold.core.Profile.Badge.TEACHER;
 import com.erudika.scoold.core.Question;
 import com.erudika.scoold.core.Reply;
 import com.erudika.scoold.core.Report;
 import com.erudika.scoold.core.Revision;
 import com.erudika.scoold.core.UnapprovedQuestion;
 import com.erudika.scoold.core.UnapprovedReply;
+import static com.erudika.scoold.utils.HttpUtils.getCookieValue;
 import com.erudika.scoold.utils.avatars.AvatarFormat;
 import com.erudika.scoold.utils.avatars.AvatarRepository;
 import com.erudika.scoold.utils.avatars.AvatarRepositoryProxy;
@@ -57,22 +63,6 @@ import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.typesafe.config.ConfigObject;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.RegExUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.commons.text.StringEscapeUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
-import org.springframework.stereotype.Component;
-
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.validation.ConstraintViolation;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -1612,16 +1602,9 @@ public final class ScooldUtils {
 				+ "<a href=\"https://scoold.com\">Powered by Scoold</a>"));
 		String fqdn = Config.getConfigParam("rewrite_inbound_links_with_fqdn", "");
 		if (!StringUtils.isBlank(fqdn)) {
-			model.entrySet()
-				.stream()
-				.filter(e -> (e.getValue() instanceof String))
-				.forEachOrdered(
-					e -> model.put(
-						e.getKey(),
-						StringUtils.replace(
-							(String) e.getValue(),
-							ScooldServer.getServerURL(),
-							fqdn)));
+			model.entrySet().stream().filter(e -> (e.getValue() instanceof String)).forEachOrdered(e -> {
+				model.put(e.getKey(), StringUtils.replace((String) e.getValue(), ScooldServer.getServerURL(), fqdn));
+			});
 		}
 		return Utils.compileMustache(model, loadEmailTemplate("notify"));
 	}
