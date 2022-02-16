@@ -17,7 +17,6 @@
  */
 package com.erudika.scoold.utils;
 
-import com.erudika.para.core.utils.Para;
 import com.erudika.para.client.ParaClient;
 import com.erudika.para.core.Address;
 import com.erudika.para.core.ParaObject;
@@ -26,29 +25,24 @@ import com.erudika.para.core.Tag;
 import com.erudika.para.core.User;
 import com.erudika.para.core.Vote;
 import com.erudika.para.core.Webhook;
-import com.erudika.para.core.utils.ParaObjectUtils;
 import com.erudika.para.core.email.Emailer;
 import com.erudika.para.core.utils.Config;
 import com.erudika.para.core.utils.Pager;
+import com.erudika.para.core.utils.Para;
+import com.erudika.para.core.utils.ParaObjectUtils;
 import com.erudika.para.core.utils.Utils;
 import com.erudika.para.core.validation.ValidationUtils;
 import com.erudika.scoold.ScooldServer;
-import static com.erudika.scoold.ScooldServer.*;
 import com.erudika.scoold.core.Comment;
 import com.erudika.scoold.core.Feedback;
 import com.erudika.scoold.core.Post;
-import static com.erudika.scoold.core.Post.ALL_MY_SPACES;
-import static com.erudika.scoold.core.Post.DEFAULT_SPACE;
 import com.erudika.scoold.core.Profile;
-import static com.erudika.scoold.core.Profile.Badge.ENTHUSIAST;
-import static com.erudika.scoold.core.Profile.Badge.TEACHER;
 import com.erudika.scoold.core.Question;
 import com.erudika.scoold.core.Reply;
 import com.erudika.scoold.core.Report;
 import com.erudika.scoold.core.Revision;
 import com.erudika.scoold.core.UnapprovedQuestion;
 import com.erudika.scoold.core.UnapprovedReply;
-import static com.erudika.scoold.utils.HttpUtils.getCookieValue;
 import com.erudika.scoold.utils.avatars.AvatarFormat;
 import com.erudika.scoold.utils.avatars.AvatarRepository;
 import com.erudika.scoold.utils.avatars.AvatarRepositoryProxy;
@@ -674,6 +668,7 @@ public final class ScooldUtils {
 			model.put("question_title", question.getTitle());
 			model.put("post_url", postURL);
 			model.put("post_body", body);
+			model.put("subject", "Interacty: " + subject);
 
 			Set<String> emails = new HashSet<>(getNotificationSubscribers(EMAIL_ALERTS_PREFIX + "new_post_subscribers"));
 			emails.addAll(getFavTagsSubscribers(question.getTags()));
@@ -699,15 +694,17 @@ public final class ScooldUtils {
 			Map<String, String> lang = getLang(req);
 			String name = replyAuthor.getName();
 			String body = Utils.markdownToHtml(reply.getBody());
-			String picture = Utils.formatMessage("<img src='{0}' width='25'>", escapeHtmlAttribute(avatarRepository.getLink(replyAuthor, AvatarFormat.Square25)));
 			String postURL = getServerURL() + parentPost.getPostLink(false, false);
 			String subject = Utils.formatMessage(lang.get("notification.reply.subject"), name,
 					Utils.abbreviate(reply.getTitle(), 255));
+
 			model.put("subject", escapeHtml(subject));
-			model.put("logourl", Config.getConfigParam("small_logo_url", "https://interacty.me/_next/static/image/images/logo/blue.9f6c317928ecd435916c8d42a2f173b2.svg"));
-			model.put("heading", Utils.formatMessage(lang.get("notification.reply.heading"),
-					Utils.formatMessage("<a href='{0}'>{1}</a>", postURL, escapeHtml(parentPost.getTitle()))));
-			model.put("body", Utils.formatMessage("<h2>{0} {1}:</h2><div>{2}</div>", picture, escapeHtml(name), body));
+			model.put("unsubscribe", UNSUBSCRIBE_LINK);
+			model.put("current_year", 1900 + new Date().getYear());
+			model.put("answer_title", subject);
+			model.put("question_title", reply.getTitle());
+			model.put("post_url", postURL);
+			model.put("post_body", body);
 
 			Profile authorProfile = pc.read(parentPost.getCreatorid());
 			if (authorProfile != null) {
@@ -729,10 +726,12 @@ public final class ScooldUtils {
 			}
 
 			if (isReplyNotificationAllowed() && parentPost.hasFollowers()) {
+				String content = Utils.compileMustache(model, loadEmailTemplate("question_reply"));
+
 				emailer.sendEmail(
 					new ArrayList<>(parentPost.getFollowers().values()),
 					subject,
-					compileEmailTemplate(model));
+					content);
 			}
 		}
 	}
@@ -988,7 +987,7 @@ public final class ScooldUtils {
 	}
 
 	public Map<String, String> getLang(HttpServletRequest req) {
-		return getLang(getCurrentLocale(getLanguageCode(req)));
+		return getLang(Locale.ENGLISH);
 	}
 
 	public Map<String, String> getLang(Locale currentLocale) {
