@@ -702,7 +702,7 @@ public final class ScooldUtils {
 			model.put("unsubscribe", UNSUBSCRIBE_LINK);
 			model.put("current_year", 1900 + new Date().getYear());
 			model.put("answer_title", subject);
-			model.put("question_title", reply.getTitle());
+			model.put("question_title", Utils.abbreviate(reply.getTitle(), 255));
 			model.put("post_url", postURL);
 			model.put("post_body", body);
 
