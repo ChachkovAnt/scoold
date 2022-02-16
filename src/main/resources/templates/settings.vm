@@ -112,23 +112,6 @@
 				</div>
 			</div>
 			#end
-			#if($commentEmailsAllowed)
-			<div class="mbl">
-				<div class="switch">
-					<label>
-						$!lang.get('off')
-						#if($authUser.commentEmailsEnabled)
-						<input type="checkbox" name="commentEmailsOn" checked="checked" value="true">
-						#else
-						<input type="checkbox" name="commentEmailsOn" value="true">
-						#end
-						<span class="lever"></span>
-						$!lang.get('on')
-					</label>
-					<span class="mll mediumText">$!lang.get('settings.commentemails')</span>
-				</div>
-			</div>
-			#end
 			#end
 
 			#if($scooldUtils.isDarkModeEnabled())
