@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Erudika. https://erudika.com
+ * Copyright 2013-2022 Erudika. https://erudika.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,13 +170,15 @@ public class Profile extends Sysprop {
 		String space = StringUtils.substringBefore(Config.getConfigParam("auto_assign_spaces", ""), ",");
 		if (!StringUtils.isBlank(space) && !ScooldUtils.getInstance().isDefaultSpace(space)) {
 			Sysprop s = client().read(ScooldUtils.getInstance().getSpaceId(space));
-			if (s != null) {
-				if (Config.getConfigBoolean("reset_spaces_on_new_assignment",
-						u.isOAuth2User() || u.isLDAPUser() || u.isSAMLUser())) {
-					p.setSpaces(Collections.singleton(s.getId() + Config.SEPARATOR + s.getName()));
-				} else {
-					p.getSpaces().add(s.getId() + Config.SEPARATOR + s.getName());
-				}
+			if (s == null) {
+				s = ScooldUtils.getInstance().buildSpaceObject(space);
+				client().create(s); // create the space it it's missing
+			}
+			if (Config.getConfigBoolean("reset_spaces_on_new_assignment",
+					u.isOAuth2User() || u.isLDAPUser() || u.isSAMLUser())) {
+				p.setSpaces(Collections.singleton(s.getId() + Config.SEPARATOR + s.getName()));
+			} else {
+				p.getSpaces().add(s.getId() + Config.SEPARATOR + s.getName());
 			}
 		}
 		return p;
